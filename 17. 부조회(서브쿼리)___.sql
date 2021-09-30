@@ -26,7 +26,7 @@ _______________
             DENSE_RANK() OVER(ORDER BY REGDATE DESC) `NO`
         FROM NOTICE
         WHERE `NO` BETWEEN 1 AND 10;
-        -- 오류발생!
+        -- 오류발생! ( 실행순서는 from-> where -> select 이기 때문에 no 를 where 절에서 먼저 찾지 못함)
 
 
         SELECT A.WRITER_ID, A.TITLE, A.REGDATE, A.`NO`
@@ -58,23 +58,50 @@ _______________
          -- ERROR 1054 (42S22): Unknown column 'AGE' in 'where clause'   
 
 
-
-
-
-
+        SELECT A.GROUP_NAME, A.MEMBER_NAME, A.AGE
+         FROM (SELECT GROUP_NAME, MEMBER_NAME, YEAR(NOW())-YEAR(BIRTHDAY)+1 AGE 
+              FROM IDOL_MEMBER) A
+         WHERE A.AGE >= 27;
+         
+        --서브쿼리를 사용하진 않았지만 간단한 방법
+        SELECT GROUP_NAME, MEMBER_NAME, YEAR(NOW())-YEAR(BIRTHDAY)+1 AGE
+         FROM IDOL_MEMBER
+         HAVING AGE >= 27;
 
         ----------------------------------------------------
 
 
     > IDOL_MEMBER 테이블에서 평균 나이 이상인 멤버를 조회하시오
         ----------------------------------------------------
-        SELECT AVG(YEAR(NOW())-YEAR(BIRTHDAY)+1)
+        SELECT ROUND(AVG(YEAR(NOW())-YEAR(BIRTHDAY)+1))
         FROM IDOL_MEMBER;
 
 
+      SELECT GROUP_NAME, MEMBER_NAME, YEAR(NOW())-YEAR(BIRTHDAY)+1 AGE
+         FROM IDOL_MEMBER
+         HAVING AGE >= (  SELECT ROUND(AVG(YEAR(NOW())-YEAR(BIRTHDAY)+1))
+        FROM IDOL_MEMBER);
+
+    SELECT A.GROUP_NAME, A.MEMBER_NAME, A.AGE
+    FROM (SELECT GROUP_NAME, MEMBER_NAME, YEAR(NOW())-YEAR(BIRTHDAY)+1 AGE FROM IDOL_MEMBER
+    ) A
+    where A.AGE >= (
+    SELECT ROUND(AVG(YEAR(NOW())-YEAR(BIRTHDAY)+1)) FROM IDOL_MEMBER
+    ) order by A.AGE DESC;
 
 
 
+  -- WITH 절 이용하여 가상테이블 생성
+  WITH TBL AS
+  (
+    SELECT GROUP_NAME,MEMBER_NAME,
+     YEAR(NOW())-YEAR(BIRTHDAY)+1 AGE 
+     FROM IDOL_MEMBER
+  )
+
+  SELECT GROUP_NAME, MEMBER_NAME, AGE
+  FROM TBL
+  WHERE AGE >= (SELECT AVG(TBL.AGE) FROM TBL);
 
 
         ----------------------------------------------------
@@ -89,9 +116,18 @@ _______________
   : 하나의 레코드에 하나의 값을 리턴하는 서브쿼리
     컬럼값이 오는 모든 자리에 사용
 
-    > NOTICE TALBE로부터 작성자(sjpark)의 게시글 HIT 평균값
+    > NOTICE TABLE로부터 작성자(sjpark)의 게시글 HIT 평균값
       과 HIT 수를 출력하시오 
         ----------------------------------------------------
+     
+     SELECT TITLE , WRITER_ID, HIT,
+      (
+        SELECT AVG(HIT) 
+        FROM notice 
+        WHERE WRITER_ID="sjpark"
+        ) as AVG_HIT
+     FROM NOTICE WHERE WRITER_ID="sjpark";
+
 
 
 
@@ -102,8 +138,15 @@ _______________
 
     > CITY 정보를 조회(단, 해당 도시의 나라이름 포함)하시오
         ----------------------------------------------------
+      SELECT A.NAME, A.COUNTRYCODE,
+         (
 
-
+         SELECT B.NAME 
+         FROM COUNTRY B 
+         WHERE A.COUNTRYCODE = B.CODE 
+      
+         ) AS COUNTRYNAME, POPULATION
+      FROM CITY A;
 
 
 
@@ -119,11 +162,17 @@ _______________
        게시글들을 출력하시오 
         ----------------------------------------------------
 
+    --서브쿼리 안쓸경우
+     SELECT TITLE, WRITER_ID, hit 
+     FROM NOTICE 
+     WHERE HIT>=15 
+     AND WRITER_ID='sjpark';
 
-
-
-
-
+    --서브쿼리 쓸 경우
+    SELECT TITLE, WRITER_ID,HIT
+    FROM(SELECT * FROM notice WHERE WRITER_ID ='sjpark') X
+    WHERE X.HIT>=15
+    ORDER BY HIT DESC;
 
         ----------------------------------------------------
 
@@ -150,7 +199,14 @@ _______________
         FROM NOTICE
         WHERE TITLE LIKE '%가입인사%' AND HIT >= 100;
 
-
+      SELECT TITLE , WRITER_ID, HIT SELECT
+      FROM NOTICE
+      WHERE WRTIER_ID IN 
+      (
+        SELECT WRITER_ID 
+        FROM NOTICE 
+        WHERE TITLE LIKE '%가입인사%'
+        AND HIT >=100 );
 
 
 
@@ -160,10 +216,21 @@ _______________
 
     > EMPLOYEES 테이블에서 개발부서(Development) 소속인 직원들을 조회하시오
         ----------------------------------------------------
+        
+        
         SELECT * FROM EMPLOYEES LIMIT 5;
         SELECT * FROM DEPT_EMP LIMIT 5;
         SELECT * FROM DEPARTMENTS;
 
+        SELECT * 
+        FROM employees a
+        WHERE a.EMP_NO IN
+        (
+          SELECT  B.emp_no
+          FROM dept_emp B
+          WHERE B.dept_no ='d005'
+        )
+        LIMIT 100;
 
 
 
@@ -174,6 +241,20 @@ _______________
     > CITY 테이블에서 인구가 가장 많은 도시의 정보를 조회하시오
         ----------------------------------------------------
         SELECT MAX(POPULATION) FROM CITY;
+
+        SELECT *
+        FROM CITY ADDWHRER A.POPULATION =
+        (
+          SELECT MAX(POPULATION) FROM city
+        );
+
+        SELECT *
+        FROM CITY A
+        WHERE A.POPULATION >= 
+         ( 
+          SELECT ROUND(AVG(POPULATION)) 
+          FROM CITY
+          );
 
 
 
